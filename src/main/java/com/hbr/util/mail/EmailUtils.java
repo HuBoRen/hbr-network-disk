@@ -1,46 +1,109 @@
-package com.hbr;
+package com.hbr.util.mail;
 
 import com.hbr.model.mail.MailUser;
-import com.hbr.redis.service.RedisService;
-import com.hbr.util.SessionManager;
-import com.hbr.util.mail.EmailUtils;
-import org.junit.jupiter.api.Test;
-import org.junit.runner.RunWith;
+import com.hbr.util.apiConstant.resp.ApiResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.mail.MailException;
+import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Component;
 
-import javax.annotation.Resource;
 import javax.mail.MessagingException;
+import javax.mail.internet.MimeMessage;
+import java.io.File;
+import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
 
-@SpringBootTest
-@RunWith(SpringRunner.class)
-class HbrDiskApplicationTests {
-    Logger logger= LoggerFactory.getLogger(HbrDiskApplicationTests.class);
-    @Autowired
-    private RedisService redisService;
-    @Resource
-    private JavaMailSender mailSender;
-    @Autowired
-    private MailUser mailUser;
+@Slf4j
+@Component
+public class EmailUtils implements Serializable {
 
+    public static Logger logger = LoggerFactory.getLogger(EmailUtils.class);
 
+    /**
+     * 文本信息发送
+     */
+    public static ApiResponse textEmail(MailUser mailUser,JavaMailSender mailSender) {
+        //创建简单邮件消息
+        SimpleMailMessage message = new SimpleMailMessage();
+        //谁发的
+        message.setFrom(mailUser.getFromAdmin());
+        //谁要接收
+        message.setTo(mailUser.getToUser());
+        //邮件标题
+        message.setSubject(mailUser.getSubject());
+        //邮件内容
+        message.setText(mailUser.getContent());
+        try {
+            mailSender.send(message);
+            return ApiResponse.buildSuccessRespData("发送文本邮件成功");
+        } catch (MailException e) {
+            logger.error("发送邮件失败",e);
+            return ApiResponse.buildFailResp("发送文本邮件失败");
+        }
 
-    @Test
-    void contextLoads() {
     }
 
-    @Test
-    public void testSms() throws MessagingException, UnsupportedEncodingException {
-        EmailUtils emailUtils=new EmailUtils();
+    @Async
+    public static ApiResponse htmlEmail(MailUser toEmail,JavaMailSender mailSender){
+        try {
+            //创建一个MINE消息
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper minehelper = new MimeMessageHelper(message, true);
+            //谁发
+            minehelper.setFrom(toEmail.getFromAdmin(),toEmail.getPersonal());
+            //谁要接收
+            minehelper.setTo(toEmail.getToUser());
+            //邮件主题
+            minehelper.setSubject(toEmail.getSubject());
+            //邮件内容   true 表示带有附件或html
+            minehelper.setText(toEmail.getContent(), true);
+            try {
+                mailSender.send(message);
+                return ApiResponse.buildSuccessRespData("HTML邮件成功");
+            } catch (MailException e) {
+                logger.error("发送Html邮件出错",e);
+                return ApiResponse.buildFailResp("HTML邮件失败");
+            }
+        } catch (MessagingException e) {
+            e.printStackTrace();
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+        return ApiResponse.buildFailResp("HTML邮件失败");
+    }
 
-        mailUser.setSubject("用户注册审核");
-        mailUser.setToUser(new String[]{"dyh_2021@163.com"});
-        mailUser.setContent("<!DOCTYPE html>\n" +
+    /**
+     * 发送带附件的邮件
+     *
+     * @param to      接受人
+     * @param subject 主题
+     * @param html    发送内容
+     * @param filePath  附件路径
+     * @throws MessagingException           异常
+     * @throws UnsupportedEncodingException 异常
+     */
+    public static void sendAttachmentMail(String to, String subject, String html, String filePath,JavaMailSender mailSender) throws MessagingException, UnsupportedEncodingException {
+        MimeMessage mimeMessage = mailSender.createMimeMessage();
+        // 设置utf-8或GBK编码，否则邮件会有乱码
+        MimeMessageHelper messageHelper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
+        messageHelper.setFrom("hbrhbr123@163.com", "测试");
+        messageHelper.setTo(to);
+        messageHelper.setSubject(subject);
+        messageHelper.setText(html, true);
+        FileSystemResource file=new FileSystemResource(new File(filePath));
+        String fileName=filePath.substring(filePath.lastIndexOf(File.separator));
+        messageHelper.addAttachment(fileName,file);
+        mailSender.send(mimeMessage);
+    }
+
+    public static String getAuditMailContent(String userName){
+        String content="<!DOCTYPE html>\n" +
                 "<html lang=\"en\" xmlns=\"http://www.w3.org/1999/html\">\n" +
                 "<head>\n" +
                 "    <meta charset=\"UTF-8\">\n" +
@@ -56,7 +119,7 @@ class HbrDiskApplicationTests {
                 "<!--        <p>如您没有在龙虎网盘注册用户请忽略此邮件！</p>-->\n" +
                 "        <div class=\"text\">\n" +
                 "            <p><span style=\"font-weight: 700;\"> xxx </span>管理员你好</p>\n" +
-                "            <p>新用户<span style=\"font-weight: 700;\">"+ SessionManager.getCurrentUser() + "</span>注册了，快去审核吧！</p>\n" +
+                "            <p>新用户<span style=\"font-weight: 700;\">"+ userName + "</span>注册了，快去审核吧！</p>\n" +
                 "        </div>\n" +
                 "\n" +
                 "\n" +
@@ -111,18 +174,7 @@ class HbrDiskApplicationTests {
                 "        left: 36vw;\n" +
                 "    }\n" +
                 "</style>\n" +
-                "</html>");
-
-        emailUtils.htmlEmail(mailUser,mailSender);
+                "</html>";
+        return content;
     }
-
-    @Test
-    public void testSms1() throws MessagingException {
-        EmailUtils emailUtils=new EmailUtils();
-        mailUser.setSubject("用户注册审核");
-        mailUser.setToUser(new String[]{"ljxljxa@163.com"});
-        mailUser.setContent("ces");
-        emailUtils.textEmail(mailUser,mailSender);
-    }
-
 }
