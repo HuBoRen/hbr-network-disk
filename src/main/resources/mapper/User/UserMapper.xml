@@ -28,20 +28,52 @@
         where id = #{id,jdbcType=BIGINT}
     </select>
 
+    <select id="checkForPresence" resultMap="BaseResultMap">
+        select <include refid="Base_Column_List"/> from t_user
+        <where>
+            <if test="userName != null and userName != ''">
+                and user_name=#{userName}
+            </if>
+            <if test="mailbox != null and mailbox != ''">
+                and mailbox=#{mailbox}
+            </if>
+            <if test="password != null and password !=''">
+                and password=#{password}
+            </if>
+            and status = 1
+        </where>
+    </select>
+
+    <select id="checkForPhone" resultType="java.lang.Integer">
+         select count(1) from t_user
+         where mobile_phone=#{phone}
+    </select>
+
+    <select id="checkForUserName" resultType="java.lang.Integer">
+        select count(1) from t_user
+         where user_name=#{userName}
+    </select>
+
+    <select id="checkForMailbox" resultType="java.lang.Integer">
+        select count(1) from t_user
+         where mailbox=#{mailbox} and status=1
+    </select>
+
+
     <delete id="deleteByPrimaryKey" parameterType="java.lang.Long" >
         delete from t_user
         where id = #{id,jdbcType=BIGINT}
     </delete>
 
     <insert id="insert" parameterType="com.hbr.model.User.User" >
-        insert into t_user (id, user_name, password, 
+        insert into t_user (user_name, password,
             mailbox, nick_name, status, 
-            creat_time, last_login_time, mobile_phone, 
-            birthday, role)
-        values (#{id,jdbcType=BIGINT}, #{userName,jdbcType=VARCHAR}, #{password,jdbcType=VARCHAR}, 
+            mobile_phone,
+            role)
+        values (#{userName,jdbcType=VARCHAR}, #{password,jdbcType=VARCHAR},
             #{mailbox,jdbcType=VARCHAR}, #{nickName,jdbcType=VARCHAR}, #{status,jdbcType=TINYINT}, 
-            #{creatTime,jdbcType=TIMESTAMP}, #{lastLoginTime,jdbcType=TIMESTAMP}, #{mobilePhone,jdbcType=INTEGER}, 
-            #{birthday,jdbcType=TIMESTAMP}, #{role,jdbcType=TINYINT})
+            #{mobilePhone,jdbcType=INTEGER},
+            #{role,jdbcType=TINYINT})
     </insert>
 
     <insert id="insertSelective" parameterType="com.hbr.model.User.User" >
