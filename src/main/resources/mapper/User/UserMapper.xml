@@ -31,9 +31,6 @@
     <select id="checkForPresence" resultMap="BaseResultMap">
         select <include refid="Base_Column_List"/> from t_user
         <where>
-            <if test="userName != null and userName != ''">
-                and user_name=#{userName}
-            </if>
             <if test="mailbox != null and mailbox != ''">
                 and mailbox=#{mailbox}
             </if>
